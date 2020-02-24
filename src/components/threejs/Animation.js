@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react'
 import * as THREE from 'three';
 import { Context } from '../../context/Context'
-import alphaTexture from '../../assets/textures/dark-s_nx.jpg';
+import alphaTexture from '../../assets/textures/stripes_gradient.jpg';
 import { Interaction } from 'three.interaction';
 import { bestSkills, categories } from '../../content/skills'
 
@@ -9,6 +9,8 @@ import { bestSkills, categories } from '../../content/skills'
 const TreeReact = () => {
     const { setCategory } = useContext(Context)
     const [container, setContainer] = useState()
+    const [animation, setAnimation] = useState(false)
+
     useEffect(() => {
         if (container) {
             init();
@@ -22,81 +24,55 @@ const TreeReact = () => {
     }
 
 
-    var camera, scene, renderer;
+    var camera, scene, renderer, subjectMaterial, subjectWireframe;
 
-    var raycaster, mouse;
-
-    var mesh, line, box, box2;
+    var mouse;
 
     const boxGroup = new THREE.Group();
-    const textGroup = new THREE.Group();
+    let textGroup = new THREE.Group();
+    const wireFrameGroup = new THREE.Group();
 
-    function init() {
 
-        // container = document.getElementById('container');
-
-        //
-
-        // camera = new THREE.PerspectiveCamera(27, window.innerWidth / window.innerHeight, 1, 3500);
-        // camera.position.z = 2750;
-
+    const init = () => {
         camera = buildCamera(screenDimensions)
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
-        scene.fog = new THREE.Fog(0x050505, 2000, 3500);
+        scene = buildScene()
 
         renderer = new THREE.WebGLRenderer();
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
 
-        const interaction = new Interaction(renderer, scene, camera);
+        new Interaction(renderer, scene, camera);
 
 
-
-        const subjectGeometry = new THREE.IcosahedronGeometry(200);
-        var texture = new THREE.TextureLoader().load(alphaTexture);
-
-        const subjectMaterial = new THREE.MeshStandardMaterial({
-
-        });
-        subjectMaterial.alphaMap = new THREE.TextureLoader().load(alphaTexture);
-        subjectMaterial.alphaMap.magFilter = THREE.NearestFilter;
-        subjectMaterial.alphaMap.wrapT = THREE.RepeatWrapping;
-
-        const subjectWireframe = new THREE.LineSegments(
-            new THREE.EdgesGeometry(subjectGeometry),
-            new THREE.LineBasicMaterial(),
-
-        );
-        var material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
-
-        var geometry = new THREE.BoxGeometry(10, 10, 10, 10, 10, 10)
-        var box = new THREE.Mesh(geometry, subjectMaterial);
-
-        box.rotation.z = Math.PI / 4;
-        box.rotation.x = Math.PI / 4;
-        box.rotation.y = Math.PI / 4;
-        box.name = 'foo'
-        box.cursor = 'pointer';
-        box.on('click', function (ev) {
-            setCategory(ev.data.target.name)
-            scene.add(textGroup)
-        });
-
+        const box = buildBox()
         boxGroup.add(box);
-        scene.add(subjectWireframe);
+
+        const wireFrame = buildWireframe()
+        wireFrameGroup.add(wireFrame);
+
+        textGroup = buildTexts()
+
+
         scene.add(boxGroup)
+        scene.add(wireFrame)
+        // scene.add(textGroup)
 
 
         mouse = new THREE.Vector2();
 
 
-        //Points
+        container.appendChild(renderer.domElement);
+        onWindowResize()
+        window.addEventListener('resize', onWindowResize, false);
+        // document.addEventListener('mousemove', onDocumentMouseMove, false);
 
-        const pointsGeometry = new THREE.RingGeometry(10);
+    }
+
+    const buildTexts = () => {
+        const group = new THREE.Group();
+
+        const pointsGeometry = new THREE.RingGeometry(20);
         var points = new THREE.Points(pointsGeometry);
-        // var points = new THREE.Points(pointsGeometry, pointsMaterial);
-        console.log('points :', points.geometry.vertices);
         let pointsVertices = points.geometry.vertices
 
 
@@ -117,11 +93,12 @@ const TreeReact = () => {
 
                 textGeo.center()
                 // await textGeo.position.set(foo.x, foo.y, foo.z)
-                // var textmaterial = new THREE.MeshNormalMaterial({ color: '#5b0f0f' });
+                var pointMaterial = new THREE.MeshNormalMaterial({ color: '#5b0f0f' });
                 var textmaterial = new THREE.MeshPhongMaterial(
                     { color: 0xffffff }
                 );
                 var textMesh = new THREE.Mesh(textGeo, textmaterial);
+                var pointMesh = new THREE.Mesh(pointsGeometry, pointMaterial);
 
                 textMesh.position.set(pointsVertices[i].x, pointsVertices[i].y, pointsVertices[i].z)
                 textMesh.name = str
@@ -129,22 +106,52 @@ const TreeReact = () => {
                     setCategory(ev.data.target.name)
 
                 });
-                textGroup.add(textMesh);
+                group.add(textMesh);
+                group.add(pointMesh);
             })
-
-
         });
-
-
-
-        container.appendChild(renderer.domElement);
-
-        onWindowResize()
-        window.addEventListener('resize', onWindowResize, false);
-        document.addEventListener('mousemove', onDocumentMouseMove, false);
-
+        return group
     }
-    function buildCamera({ width, height }) {
+    const buildWireframe = () => {
+        const subjectGeometry = new THREE.IcosahedronGeometry(10);
+        subjectMaterial = new THREE.MeshStandardMaterial({ color: "#000", transparent: true, side: THREE.AdditiveBlending, alphaTest: 0.1 });
+        subjectMaterial.alphaMap = new THREE.TextureLoader().load(alphaTexture);
+        subjectMaterial.alphaMap.magFilter = THREE.NearestFilter;
+        subjectMaterial.alphaMap.wrapT = THREE.RepeatWrapping;
+        subjectMaterial.alphaMap.repeat.y = 10;
+
+        subjectWireframe = new THREE.LineSegments(
+            new THREE.EdgesGeometry(subjectGeometry),
+            new THREE.LineBasicMaterial(),
+
+        );
+        return subjectWireframe
+    }
+    const buildBox = () => {
+        var boxGeometry = new THREE.BoxGeometry(10, 10, 10, 10, 10, 10)
+        const boxMaterial = new THREE.MeshStandardMaterial({ color: "#000", transparent: true, side: THREE.AdditiveBlending, alphaTest: 0.1 });
+        boxMaterial.alphaMap = new THREE.TextureLoader().load(alphaTexture);
+        boxMaterial.alphaMap.magFilter = THREE.NearestFilter;
+        boxMaterial.alphaMap.wrapT = THREE.RepeatWrapping;
+        var box = new THREE.Mesh(boxGeometry, boxMaterial);
+        box.rotation.z = Math.PI / 4;
+        box.rotation.x = Math.PI / 4;
+        box.rotation.y = Math.PI / 4;
+        box.name = 'foo'
+        box.cursor = 'pointer';
+        box.on('click', function (ev) {
+            setAnimation(true)
+            scene.add(textGroup)
+        });
+        return box
+    }
+    const buildScene = () => {
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+        scene.fog = new THREE.Fog(0x050505, 2000, 3500);
+        return scene
+    }
+    const buildCamera = ({ width, height }) => {
         const aspectRatio = width / height;
         const fieldOfView = 60;
         const nearPlane = 4;
@@ -156,71 +163,53 @@ const TreeReact = () => {
         return camera;
     }
 
-    function onWindowResize() {
-
+    const onWindowResize = () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-
         renderer.setSize(window.innerWidth, window.innerHeight);
-
     }
 
-    function onDocumentMouseMove(event) {
+    // function onDocumentMouseMove(event) {
+    //     event.preventDefault();
+    //     console.log('event :', event);
+    //     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    //     mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
-        event.preventDefault();
+    // }
 
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-
-    }
-
-    //
-
-    function animate() {
-
+    const animate = () => {
         requestAnimationFrame(animate);
-
         render();
-        // stats.update();
-
     }
 
-    function render() {
+    const render = () => {
 
         var time = Date.now() * 0.001;
-
-        // boxGroup.rotation.x = time * 0.15;
+        const speed = 0.02;
+        const textureOffsetSpeed = 0.02;
         boxGroup.rotation.y = time
+        const angle = time * speed;
 
-        // raycaster.setFromCamera(mouse, camera);
+        boxGroup.rotation.y = -(angle * 50);
 
-        // var intersects = raycaster.intersectObject(boxGroup);
+        subjectMaterial.alphaMap.offset.y = 0.55 + time * textureOffsetSpeed;
 
-        // console.log('intersects :', intersects);
-        // if (intersects.length > 0) {
-        //     var intersect = intersects[0];
-        //     console.log('intersect :', intersect.object.name);
-        //     var face = intersect.face;
-        //     setCategory(intersect.object.name)
-        //     var linePosition = line.geometry.attributes.position;
-        //     // var meshPosition = box2.geometry.attributes.position;
+        subjectWireframe.material.color.setHSL(Math.sin(angle * 2), 0.5, 0.5);
 
-        //     linePosition.copyAt(0, meshPosition, face.a);
-        //     linePosition.copyAt(1, meshPosition, face.b);
-        //     linePosition.copyAt(2, meshPosition, face.c);
-        //     linePosition.copyAt(3, meshPosition, face.a);
+        let scale
+        if (animation) {
+            scale = angle * 8;
 
-        //     mesh.updateMatrix();
+            subjectWireframe.scale.set(scale, scale, scale)
+        }
+        else {
+            scale = (Math.sin(angle * 8) + 6.4) / 5;
+            subjectWireframe.scale.set(scale, scale, scale)
+        }
 
-        //     line.geometry.applyMatrix4(mesh.matrix);
 
-        //     line.visible = true;
-
-        // } else {
-
-        //     line.visible = false;
-
-        // }
+        const scale2 = (Math.sin(angle * 8) + 6.4) / 8;
+        textGroup.scale.set(scale2, scale2, scale2)
 
         renderer.render(scene, camera);
 
@@ -233,6 +222,7 @@ const TreeReact = () => {
 
         return geometry;
     }
+
     return (
         <div className="header-header" ref={element => setContainer(element)} />
     )
