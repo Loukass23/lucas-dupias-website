@@ -2,8 +2,10 @@ import React, { useEffect, useState, useContext } from 'react'
 import * as THREE from 'three';
 import { Context } from '../../context/Context'
 import alphaTexture from '../../assets/textures/stripes_gradient.jpg';
+import font from '../../assets/font/CascadiaCode.json';
 import { Interaction } from 'three.interaction';
 import { bestSkills, categories } from '../../content/skills'
+import "./animation.css"
 
 
 const TreeReact = () => {
@@ -18,15 +20,20 @@ const TreeReact = () => {
         }
     }, [container])
 
+
     const screenDimensions = {
         width: window.width,
         height: window.height
     }
+    const origin = new THREE.Vector3(0, 0, 0);
 
 
     var camera, scene, renderer, subjectMaterial, subjectWireframe;
 
-    var mouse;
+    var mouse = {
+        x: 0,
+        y: 0
+    }
 
     const boxGroup = new THREE.Group();
     let textGroup = new THREE.Group();
@@ -36,13 +43,9 @@ const TreeReact = () => {
     const init = () => {
         camera = buildCamera(screenDimensions)
         scene = buildScene()
-
-        renderer = new THREE.WebGLRenderer();
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer = buildRenderer()
 
         new Interaction(renderer, scene, camera);
-
 
         const box = buildBox()
         boxGroup.add(box);
@@ -52,13 +55,11 @@ const TreeReact = () => {
 
         textGroup = buildTexts()
 
-
         scene.add(boxGroup)
         scene.add(wireFrame)
         // scene.add(textGroup)
 
-
-        mouse = new THREE.Vector2();
+        // mouse = new THREE.Vector2();
 
 
         container.appendChild(renderer.domElement);
@@ -66,63 +67,73 @@ const TreeReact = () => {
         window.addEventListener('resize', onWindowResize, false);
         // document.addEventListener('mousemove', onDocumentMouseMove, false);
 
+        // document.addEventListener('mousemove', onDocumentMouseMove, false);
+
     }
 
+    const buildRenderer = () => {
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        return renderer
+    }
+
+    function onMouseMove(x, y) {
+        console.log('x :', x);
+        mouse.x = x;
+        mouse.y = y;
+    }
     const buildTexts = () => {
         const group = new THREE.Group();
 
-        const pointsGeometry = new THREE.RingGeometry(20);
+        const pointsGeometry = new THREE.RingGeometry(22);
         var points = new THREE.Points(pointsGeometry);
         let pointsVertices = points.geometry.vertices
 
+        const fonti = new THREE.Font(font);
 
-        // var ambientLight = new THREE.AmbientLight(0x555555);
-        // scene.add(ambientLight);
-
-        var loader = new THREE.FontLoader();
-        loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/fonts/helvetiker_bold.typeface.json', async (font) => {
-            // 
-            categories.forEach((str, i) => {
-                var textGeo = new THREE.TextGeometry(str, {
-                    font: font,
-                    size: 1,
-                    height: .5,
-
-                })
-
-
-                textGeo.center()
-                // await textGeo.position.set(foo.x, foo.y, foo.z)
-                var pointMaterial = new THREE.MeshNormalMaterial({ color: '#5b0f0f' });
-                var textmaterial = new THREE.MeshPhongMaterial(
-                    { color: 0xffffff }
-                );
-                var textMesh = new THREE.Mesh(textGeo, textmaterial);
-                var pointMesh = new THREE.Mesh(pointsGeometry, pointMaterial);
-
-                textMesh.position.set(pointsVertices[i].x, pointsVertices[i].y, pointsVertices[i].z)
-                textMesh.name = str
-                textMesh.on('click', function (ev) {
-                    setCategory(ev.data.target.name)
-
-                });
-                group.add(textMesh);
-                group.add(pointMesh);
+        categories.forEach((str, i) => {
+            var textGeo = new THREE.TextGeometry(str, {
+                font: fonti,
+                size: 2,
+                height: 1,
             })
-        });
+
+            textGeo.center()
+
+            const pointLight = new THREE.PointLight(0x870d4e, 2);
+            pointLight.position.set(0, 100, 90);
+            scene.add(pointLight);
+            // pointLight.color.setHSL(Math.random(), 1, 0.5);
+
+
+            const textMaterials = [new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true }),
+            new THREE.MeshPhongMaterial({ color: 0x000000 })];
+
+            var textMesh = new THREE.Mesh(textGeo, textMaterials);
+
+            textMesh.position.set(pointsVertices[i].x, pointsVertices[i].y, pointsVertices[i].z)
+            textMesh.name = str
+            textMesh.on('click', function (ev) {
+                setCategory(ev.data.target.name)
+
+            });
+            group.add(textMesh);
+        })
         return group
     }
     const buildWireframe = () => {
         const subjectGeometry = new THREE.IcosahedronGeometry(10);
-        subjectMaterial = new THREE.MeshStandardMaterial({ color: "#000", transparent: true, side: THREE.AdditiveBlending, alphaTest: 0.1 });
-        subjectMaterial.alphaMap = new THREE.TextureLoader().load(alphaTexture);
-        subjectMaterial.alphaMap.magFilter = THREE.NearestFilter;
-        subjectMaterial.alphaMap.wrapT = THREE.RepeatWrapping;
-        subjectMaterial.alphaMap.repeat.y = 10;
+        subjectMaterial = new THREE.MeshStandardMaterial(
+            {});
+        // subjectMaterial.alphaMap = new THREE.TextureLoader().load(alphaTexture);
+        // subjectMaterial.alphaMap.magFilter = THREE.NearestFilter;
+        // subjectMaterial.alphaMap.wrapT = THREE.RepeatWrapping;
+        // subjectMaterial.alphaMap.repeat.y = 10;
 
         subjectWireframe = new THREE.LineSegments(
             new THREE.EdgesGeometry(subjectGeometry),
-            new THREE.LineBasicMaterial(),
+            // new THREE.LineBasicMaterial(),
 
         );
         return subjectWireframe
@@ -159,23 +170,30 @@ const TreeReact = () => {
         const camera = new THREE.PerspectiveCamera(fieldOfView, aspectRatio, nearPlane, farPlane);
 
         camera.position.z = 40;
-
-        return camera;
+        return camera
     }
 
     const onWindowResize = () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
+        console.log('window.innerWidth :', window.innerWidth);
+        // 
         renderer.setSize(window.innerWidth, window.innerHeight);
+
+
+        if (800 < window.innerWidth < 1000) camera.position.z = 50
+        if (300 < window.innerWidth < 800) camera.position.z = 80
+        if (window.innerWidth < 300) camera.position.z = 100
+        if (window.innerWidth > 1000) camera.position.z = 40
     }
 
-    // function onDocumentMouseMove(event) {
-    //     event.preventDefault();
-    //     console.log('event :', event);
-    //     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    //     mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+    function onDocumentMouseMove(event) {
+        event.preventDefault();
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
-    // }
+
+    }
 
     const animate = () => {
         requestAnimationFrame(animate);
@@ -183,7 +201,6 @@ const TreeReact = () => {
     }
 
     const render = () => {
-
         var time = Date.now() * 0.001;
         const speed = 0.02;
         const textureOffsetSpeed = 0.02;
@@ -192,10 +209,11 @@ const TreeReact = () => {
 
         boxGroup.rotation.y = -(angle * 50);
 
-        subjectMaterial.alphaMap.offset.y = 0.55 + time * textureOffsetSpeed;
+        // subjectMaterial.alphaMap.offset.y = 0.55 + time * textureOffsetSpeed;
 
         subjectWireframe.material.color.setHSL(Math.sin(angle * 2), 0.5, 0.5);
 
+        camera = updateCameraPositionRelativeToMouse()
         let scale
         if (animation) {
             scale = angle * 8;
@@ -214,6 +232,14 @@ const TreeReact = () => {
         renderer.render(scene, camera);
 
     }
+    const updateCameraPositionRelativeToMouse = () => {
+        camera.position.x += ((mouse.x) - camera.position.x) * 0.01;
+        camera.position.y += (-(mouse.y) - camera.position.y) * 0.01;
+        camera.lookAt(origin);
+        return camera
+
+    }
+
     function deformGeometry(geometry) {
         for (let i = 0; i < geometry.vertices.length; i += 2) {
             const scalar = 1 + Math.random() * 0.8;
@@ -224,7 +250,7 @@ const TreeReact = () => {
     }
 
     return (
-        <div className="header-header" ref={element => setContainer(element)} />
+        <div className="animation" ref={element => setContainer(element)} />
     )
 }
 
