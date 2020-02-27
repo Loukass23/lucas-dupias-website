@@ -4,9 +4,10 @@ import { Context } from '../../context/Context'
 import alphaTexture from '../../assets/textures/stripes_gradient.jpg';
 import image from '../../assets/images/profile2.png';
 import video from '../../assets/images/battleship.mp4';
+import github_logo from '../../assets/images/github_logo.png';
 import font from '../../assets/font/CascadiaCode.json';
 import { Interaction } from 'three.interaction';
-import { bestSkills, categories } from '../../content/skills'
+import { bestSkills, categories, about } from '../../content/skills'
 import "./animation.css"
 
 
@@ -49,6 +50,7 @@ const TreeReact = () => {
     const boxGroup = new THREE.Group();
     let textGroup = new THREE.Group();
     let skillsGroup = new THREE.Group();
+    let aboutGroup = new THREE.Group();
     const wireFrameGroup = new THREE.Group();
 
 
@@ -71,7 +73,9 @@ const TreeReact = () => {
 
         textGroup = buildTexts(categories, 20)
         skillsGroup = buildTexts(bestSkills, 10)
+        aboutGroup = buildTexts(about, 25)
         skillsGroup.scale.set(0.5, 0.5, 0.5)
+        aboutGroup.scale.set(0.5, 0.5, 0.5)
 
         scene.add(boxGroup)
         scene.add(wireFrame)
@@ -179,6 +183,10 @@ const TreeReact = () => {
             // new THREE.LineBasicMaterial(),
 
         );
+        subjectWireframe.cursor = 'pointer';
+        subjectWireframe.on('click', function (ev) {
+            scene.add(textGroup)
+        })
         return subjectWireframe
     }
     const buildBox = () => {
@@ -213,7 +221,21 @@ const TreeReact = () => {
         return box
     }
     const buildImg = () => {
-        var imgGeometry = new THREE.PlaneBufferGeometry(20, 20, 20, 20);
+        var imgGeometry = new THREE.PlaneBufferGeometry(15, 15, 15, 15);
+        var img = new THREE.MeshBasicMaterial({
+            map: THREE.ImageUtils.loadTexture(image)
+        });
+        img.map.needsUpdate = true; //ADDED
+        var imgMesh = new THREE.Mesh(imgGeometry, img);
+        imgMesh.name = 'img'
+        imgMesh.cursor = 'pointer';
+        // imgMesh.on('click', function (ev) {
+        //     scene.add(textGroup)
+        // });
+        return imgMesh
+    }
+    const buildLinks = () => {
+        var imgGeometry = new THREE.PlaneBufferGeometry(15, 15, 15, 15);
         var img = new THREE.MeshBasicMaterial({
             map: THREE.ImageUtils.loadTexture(image)
         });
@@ -235,7 +257,7 @@ const TreeReact = () => {
         videoEl.load(); // must call after setting/changing source
         videoEl.play();
         canvas.appendChild(videoEl)
-        var videoGeometry = new THREE.PlaneBufferGeometry(10, 10, 10, 10);
+        var videoGeometry = new THREE.PlaneBufferGeometry(30, 30, 10, 10);
         var videoTexture = new THREE.Texture(video);
         videoTexture.minFilter = THREE.LinearFilter;
         videoTexture.magFilter = THREE.LinearFilter;
@@ -349,12 +371,14 @@ const TreeReact = () => {
                 scene.remove(skillsGroup)
                 scene.remove(videoMesh)
                 scene.remove(imgMesh)
+                scene.remove(aboutGroup)
             }
 
             switch (cat) {
                 case 'About': {
                     removeCenter()
                     scene.add(imgMesh)
+                    scene.add(aboutGroup)
                     break
                 }
                 case 'Projects': {
