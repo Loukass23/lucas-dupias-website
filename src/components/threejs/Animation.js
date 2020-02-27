@@ -2,6 +2,8 @@ import React, { useEffect, useState, useContext } from 'react'
 import * as THREE from 'three';
 import { Context } from '../../context/Context'
 import alphaTexture from '../../assets/textures/stripes_gradient.jpg';
+import image from '../../assets/images/profile2.png';
+import video from '../../assets/images/battleship.mp4';
 import font from '../../assets/font/CascadiaCode.json';
 import { Interaction } from 'three.interaction';
 import { bestSkills, categories } from '../../content/skills'
@@ -9,9 +11,14 @@ import "./animation.css"
 
 
 const TreeReact = () => {
-    const { setCategory } = useContext(Context)
+    const { category, setCategory } = useContext(Context)
     const [container, setContainer] = useState()
     const [animation, setAnimation] = useState(false)
+
+    var getCategory = () => {
+        console.log('category', category)
+        return category
+    }
 
     useEffect(() => {
         if (container) {
@@ -20,6 +27,10 @@ const TreeReact = () => {
         }
     }, [container])
 
+    useEffect(() => {
+        cat = category
+        console.log('cat :', cat);
+    }, [category])
 
     const screenDimensions = {
         width: window.width,
@@ -28,7 +39,7 @@ const TreeReact = () => {
     const origin = new THREE.Vector3(0, 0, 0);
 
 
-    var camera, scene, renderer, subjectMaterial, subjectWireframe;
+    var camera, cat, scene, renderer, canvas, subjectWireframe, subjectMaterial, imgMesh, videoMesh;
 
     var mouse = {
         x: 0,
@@ -37,6 +48,7 @@ const TreeReact = () => {
 
     const boxGroup = new THREE.Group();
     let textGroup = new THREE.Group();
+    let skillsGroup = new THREE.Group();
     const wireFrameGroup = new THREE.Group();
 
 
@@ -44,6 +56,10 @@ const TreeReact = () => {
         camera = buildCamera(screenDimensions)
         scene = buildScene()
         renderer = buildRenderer()
+
+
+        imgMesh = buildImg()
+
 
         new Interaction(renderer, scene, camera);
 
@@ -53,19 +69,31 @@ const TreeReact = () => {
         const wireFrame = buildWireframe()
         wireFrameGroup.add(wireFrame);
 
-        textGroup = buildTexts()
+        textGroup = buildTexts(categories, 20)
+        skillsGroup = buildTexts(bestSkills, 10)
+        skillsGroup.scale.set(0.5, 0.5, 0.5)
 
         scene.add(boxGroup)
         scene.add(wireFrame)
+        // scene.add(imgMesh)
         // scene.add(textGroup)
+
+        const pointLight = new THREE.PointLight(0x870d4e, 2);
+        pointLight.position.set(0, 100, 90);
+        scene.add(pointLight);
+        // pointLight.color.setHSL(Math.random(), 1, 0.5);
+
 
         // mouse = new THREE.Vector2();
 
+        canvas = renderer.domElement
+        console.log('canvas :', canvas);
 
-        container.appendChild(renderer.domElement);
+        videoMesh = buildVideo()
+        container.appendChild(canvas);
         onWindowResize()
         window.addEventListener('resize', onWindowResize, false);
-        // document.addEventListener('mousemove', onDocumentMouseMove, false);
+        document.addEventListener('mousemove', onDocumentMouseMove, false);
 
         // document.addEventListener('mousemove', onDocumentMouseMove, false);
 
@@ -78,21 +106,22 @@ const TreeReact = () => {
         return renderer
     }
 
-    function onMouseMove(x, y) {
-        console.log('x :', x);
-        mouse.x = x;
-        mouse.y = y;
-    }
-    const buildTexts = () => {
+    const buildTexts = (arr, size) => {
         const group = new THREE.Group();
 
-        const pointsGeometry = new THREE.RingGeometry(22);
+        const pointsGeometry = new THREE.RingGeometry(size);
         var points = new THREE.Points(pointsGeometry);
         let pointsVertices = points.geometry.vertices
 
         const fonti = new THREE.Font(font);
 
-        categories.forEach((str, i) => {
+        var map = new THREE.TextureLoader().load(alphaTexture);
+        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+        map.anisotropy = 16;
+
+        var material = new THREE.MeshPhongMaterial({ map: map, side: THREE.DoubleSide });
+
+        arr.forEach((str, i) => {
             var textGeo = new THREE.TextGeometry(str, {
                 font: fonti,
                 size: 2,
@@ -101,29 +130,43 @@ const TreeReact = () => {
 
             textGeo.center()
 
-            const pointLight = new THREE.PointLight(0x870d4e, 2);
-            pointLight.position.set(0, 100, 90);
-            scene.add(pointLight);
-            // pointLight.color.setHSL(Math.random(), 1, 0.5);
 
 
             const textMaterials = [new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true }),
             new THREE.MeshPhongMaterial({ color: 0x000000 })];
+            let textGroupChild = new THREE.Group();
 
             var textMesh = new THREE.Mesh(textGeo, textMaterials);
 
+            const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(20, 5, 4, 4));
+            plane.position.set(pointsVertices[i].x, pointsVertices[i].y, pointsVertices[i].z)
+            textGroupChild.add(plane);
+
             textMesh.position.set(pointsVertices[i].x, pointsVertices[i].y, pointsVertices[i].z)
             textMesh.name = str
-            textMesh.on('click', function (ev) {
-                setCategory(ev.data.target.name)
+            textMesh.cursor = 'pointer';
+            plane.cursor = 'pointer';
+            plane.name = str
+            textGroupChild.name = str
+            plane.on('click', (ev) => {
+                setCategory(str)
+                cat = str
+                decount = 10
 
             });
-            group.add(textMesh);
+            textMesh.on('click', (ev) => {
+                setCategory(str)
+                cat = str
+                decount = 10
+
+            });
+            textGroupChild.add(textMesh);
+            group.add(textGroupChild)
         })
         return group
     }
     const buildWireframe = () => {
-        const subjectGeometry = new THREE.IcosahedronGeometry(10);
+        const subjectGeometry = new THREE.IcosahedronGeometry(11);
         subjectMaterial = new THREE.MeshStandardMaterial(
             {});
         // subjectMaterial.alphaMap = new THREE.TextureLoader().load(alphaTexture);
@@ -148,14 +191,70 @@ const TreeReact = () => {
         box.rotation.z = Math.PI / 4;
         box.rotation.x = Math.PI / 4;
         box.rotation.y = Math.PI / 4;
-        box.name = 'foo'
+        box.name = 'box'
         box.cursor = 'pointer';
         box.on('click', function (ev) {
-            setAnimation(true)
             scene.add(textGroup)
+            if (cat) {
+                console.log('cat :', cat);
+                setCategory(categories[categories.indexOf(cat) + 1])
+                if (categories.indexOf(cat) === categories.length - 1) {
+                    cat = categories[0]
+                    decount = 10
+                }
+                else {
+                    cat = categories[categories.indexOf(cat) + 1]
+                    decount = 10
+
+                }
+
+            }
         });
         return box
     }
+    const buildImg = () => {
+        var imgGeometry = new THREE.PlaneBufferGeometry(20, 20, 20, 20);
+        var img = new THREE.MeshBasicMaterial({
+            map: THREE.ImageUtils.loadTexture(image)
+        });
+        img.map.needsUpdate = true; //ADDED
+        var imgMesh = new THREE.Mesh(imgGeometry, img);
+        imgMesh.name = 'img'
+        imgMesh.cursor = 'pointer';
+        // imgMesh.on('click', function (ev) {
+        //     scene.add(textGroup)
+        // });
+        return imgMesh
+    }
+    const buildVideo = () => {
+        // create the video element
+        const videoEl = document.createElement('video');
+        // video.id = 'video';
+        // video.type = ' video/ogg; codecs="theora, vorbis" ';
+        videoEl.src = video;
+        videoEl.load(); // must call after setting/changing source
+        videoEl.play();
+        canvas.appendChild(videoEl)
+        var videoGeometry = new THREE.PlaneBufferGeometry(10, 10, 10, 10);
+        var videoTexture = new THREE.Texture(video);
+        videoTexture.minFilter = THREE.LinearFilter;
+        videoTexture.magFilter = THREE.LinearFilter;
+
+        var videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, overdraw: true, side: THREE.DoubleSide });
+
+        // texture.minFilter = THREE.LinearFilter;
+        // texture.magFilter = THREE.LinearFilter;
+        // texture.format = THREE.RGBFormat;
+
+        var videoMesh = new THREE.Mesh(videoGeometry, videoMaterial);
+        videoMesh.name = 'video'
+        videoMesh.cursor = 'pointer';
+        // imgMesh.on('click', function (ev) {
+        //     scene.add(textGroup)
+        // });
+        return videoMesh
+    }
+
     const buildScene = () => {
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
@@ -176,8 +275,6 @@ const TreeReact = () => {
     const onWindowResize = () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-        console.log('window.innerWidth :', window.innerWidth);
-        // 
         renderer.setSize(window.innerWidth, window.innerHeight);
 
 
@@ -185,7 +282,10 @@ const TreeReact = () => {
         if (300 < window.innerWidth < 800) camera.position.z = 80
         if (window.innerWidth < 300) camera.position.z = 100
         if (window.innerWidth > 1000) camera.position.z = 40
+
+
     }
+
 
     function onDocumentMouseMove(event) {
         event.preventDefault();
@@ -194,49 +294,127 @@ const TreeReact = () => {
 
 
     }
-
     const animate = () => {
         requestAnimationFrame(animate);
         render();
     }
 
+
+    var decount = 0
     const render = () => {
         var time = Date.now() * 0.001;
         const speed = 0.02;
         const textureOffsetSpeed = 0.02;
-        boxGroup.rotation.y = time
         const angle = time * speed;
+        let scale = (Math.sin(angle * 8) + 6.4) / 5;
+        if (!cat) {
+            boxGroup.rotation.y = time
+            boxGroup.rotation.y = -(angle * 50);
+        }
+        else {
+            if (boxGroup.position.y < 18) {
+                boxGroup.position.set(boxGroup.position.x, boxGroup.position.y + speed * 12, 0)
+                boxGroup.scale.set(0.4, 0.4, 0.4)
+                boxGroup.rotation.y = time - speed * 3
+            }
+            if (boxGroup.position.x > -35) {
+                boxGroup.position.set(boxGroup.position.x - speed * 19, boxGroup.position.y, 0)
 
-        boxGroup.rotation.y = -(angle * 50);
+            }
+
+            // console.log('canvas.height :', canvas.height);
+            if (decount > 0) {
+                boxGroup.rotation.x = time - speed
+                boxGroup.rotation.y = time - speed
+                boxGroup.rotation.z = time - speed
+                console.log('decount :', decount);
+                decount--
+            }
+
+            subjectWireframe.scale.set(subjectWireframe.scale - speed)
+            textGroup.children.forEach(child => {
+                child.children.forEach((el, i) => {
+                    if (el.name !== cat) {
+                        el.scale.set(0.5, 0.5, 0.5)
+                        el.position.set(el.position.x, 20, el.position.z)
+                    } else {
+                        el.position.set(el.position.x, 18, el.position.z)
+                        el.scale.set(0.8, 0.8, 0.8)
+
+                    }
+
+                })
+            })
+            const removeCenter = () => {
+                scene.remove(skillsGroup)
+                scene.remove(videoMesh)
+                scene.remove(imgMesh)
+            }
+
+            switch (cat) {
+                case 'About': {
+                    removeCenter()
+                    scene.add(imgMesh)
+                    break
+                }
+                case 'Projects': {
+                    removeCenter()
+                    scene.add(videoMesh)
+                    break
+                }
+
+
+                case 'Skills':
+                    {
+                        removeCenter()
+
+                        scene.add(skillsGroup)
+                        break
+                    }
+                // case 'Skills':
+                //     {
+                //         removeCenter()
+
+                //         scene.add(skillsGroup)
+                //         break
+                //     }
+
+
+                default: removeCenter()
+
+
+
+            }
+
+        }
 
         // subjectMaterial.alphaMap.offset.y = 0.55 + time * textureOffsetSpeed;
 
         subjectWireframe.material.color.setHSL(Math.sin(angle * 2), 0.5, 0.5);
 
-        camera = updateCameraPositionRelativeToMouse()
-        let scale
-        if (animation) {
-            scale = angle * 8;
+        updateCameraPositionRelativeToMouse()
 
-            subjectWireframe.scale.set(scale, scale, scale)
-        }
-        else {
-            scale = (Math.sin(angle * 8) + 6.4) / 5;
+
+
+        if (animation) {
+            scale = 0;
+            console.log('object');
+
             subjectWireframe.scale.set(scale, scale, scale)
         }
 
 
         const scale2 = (Math.sin(angle * 8) + 6.4) / 8;
-        textGroup.scale.set(scale2, scale2, scale2)
+        skillsGroup.scale.set(scale2, scale2, scale2)
 
         renderer.render(scene, camera);
 
     }
+
     const updateCameraPositionRelativeToMouse = () => {
-        camera.position.x += ((mouse.x) - camera.position.x) * 0.01;
-        camera.position.y += (-(mouse.y) - camera.position.y) * 0.01;
+        camera.position.x += ((mouse.x) - camera.position.x);
+        camera.position.y += (-(mouse.y) - camera.position.y);
         camera.lookAt(origin);
-        return camera
 
     }
 

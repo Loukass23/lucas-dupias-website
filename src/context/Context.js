@@ -4,8 +4,8 @@ export const Context = createContext()
 
 
 const ContextProvider = (props) => {
-    const [category, setCategory] = useState('none')
-    console.log('category :', category);
+    const [category, setCategory] = useState()
+
     return (
         <Context.Provider value={{ category, setCategory }}>
             {props.children}
